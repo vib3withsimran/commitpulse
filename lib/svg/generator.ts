@@ -1,6 +1,6 @@
 import type { BadgeParams, ContributionCalendar, StreakStats, MonthlyStats } from '../../types';
 import { getLabels, type BadgeLabels } from '../i18n/badgeLabels';
-import { AUTO_DARK_THEME, AUTO_LIGHT_THEME } from './themes';
+import { AUTO_THEME_DARK, AUTO_THEME_LIGHT } from './themes';
 import { TOWER_ANIMATION_CSS } from './animations';
 import { computeTowers, type TowerData } from './layout';
 import { sanitizeFont, sanitizeHexColor, sanitizeRadius, sanitizeGoogleFontUrl } from './sanitizer';
@@ -237,8 +237,8 @@ function generateAutoThemeSVG(
   params: BadgeParams,
   calendar: ContributionCalendar
 ): string {
-  const light = AUTO_LIGHT_THEME;
-  const dark = AUTO_DARK_THEME;
+  const light = AUTO_THEME_LIGHT;
+  const dark = AUTO_THEME_DARK;
   const safeUser = escapeXML(params.user || 'GitHub User');
   const sanitizedFont = sanitizeFont(params.font);
   const selectedFont = sanitizedFont
@@ -294,16 +294,14 @@ function generateAutoThemeSVG(
   fill="none"
   role="img"
 >
-  <title>CommitPulse Stats for ${safeUser} </title>
-  <desc>
-    ${params.user || 'This user'} has ${stats.totalContributions} total contributions and a longest streak of ${stats.longestStreak} days.
-  </desc>
-  <defs>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${fs(5)}" result="blur" /><feComposite in="SourceGraphic" in2="blur" operator="over" /></filter>
-  </defs>
+  ${renderHeader(safeUser, stats, sf)}
 
   <style>
   @import url('https://fonts.googleapis.com/css2?family=Fira+Code&amp;family=JetBrains+Mono&amp;family=Roboto&amp;display=swap');
+  /* Auto-theme strategy: expose the palette as CSS variables so the SVG can
+     switch from light to dark through prefers-color-scheme. Shapes use classes
+     instead of inline fills because inline fill attributes would override these
+     variables and prevent the theme from updating automatically. */
   :root { --cp-bg: #${light.bg}; --cp-text: #${light.text}; --cp-accent: #${light.accent}; }
   @media (prefers-color-scheme: dark) { :root { --cp-bg: #${dark.bg}; --cp-text: #${dark.text}; --cp-accent: #${dark.accent}; } }
   .cp-bg-fill { fill: var(--cp-bg); } .cp-text-fill { fill: var(--cp-text); color: var(--cp-text); } .cp-accent-fill { fill: var(--cp-accent); color: var(--cp-accent); }
@@ -340,9 +338,9 @@ export function generateMonthlySVG(stats: MonthlyStats, params: BadgeParams): st
   }
 
   const safeUser = escapeXML(params.user || 'GitHub User');
-  const bg = `#${(params.bg || '0d1117').replace('#', '')}`;
-  const accent = `#${(params.accent || '00ffaa').replace('#', '')}`;
-  const text = `#${(params.text || 'ffffff').replace('#', '')}`;
+  const bg = `#${sanitizeHexColor(params.bg, '0d1117')}`;
+  const accent = `#${sanitizeHexColor(params.accent, '00ffaa')}`;
+  const text = `#${sanitizeHexColor(params.text, 'ffffff')}`;
 
   const sanitizeFont = (name: string) => name.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
   const sanitizedFont = params.font ? sanitizeFont(params.font) : null;
@@ -428,8 +426,8 @@ export function generateMonthlySVG(stats: MonthlyStats, params: BadgeParams): st
 }
 
 function generateAutoThemeMonthlySVG(stats: MonthlyStats, params: BadgeParams): string {
-  const light = AUTO_LIGHT_THEME;
-  const dark = AUTO_DARK_THEME;
+  const light = AUTO_THEME_LIGHT;
+  const dark = AUTO_THEME_DARK;
   const safeUser = escapeXML(params.user || 'GitHub User');
   const sanitizeFont = (name: string) => name.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
   const sanitizedFont = params.font ? sanitizeFont(params.font) : null;

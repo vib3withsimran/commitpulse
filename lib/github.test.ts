@@ -9,6 +9,7 @@ import {
   clearGitHubApiCacheForTests,
   GITHUB_CACHE_TTL_MS,
   validateGitHubUsername,
+  cacheKey,
 } from './github';
 import type { ContributionCalendar } from '../types';
 
@@ -106,7 +107,7 @@ describe('fetchGitHubContributions', () => {
     vi.mocked(fetch).mockResolvedValue(mockResponse({ message: 'Internal Server Error' }, 500));
 
     await expect(fetchGitHubContributions('octocat')).rejects.toThrow(
-      'GitHub GraphQL API returned status 500'
+      'GitHub GraphQL API returned status 500 after 3 retries'
     );
   });
 
@@ -267,7 +268,7 @@ describe('fetchUserRepos', () => {
 
     await fetchUserRepos('octocat');
 
-    expect(fetch).toHaveBeenCalledTimes(100);
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -423,6 +424,66 @@ describe('GitHub API cache behavior', () => {
 
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+
+  it('cache hit: second profile call uses cached value', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      mockResponse({
+        login: 'octocat',
+        name: 'The Octocat',
+      })
+    );
+
+    await fetchUserProfile('octocat');
+    await fetchUserProfile('octocat');
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('refresh bypass: bypassCache=true forces fresh profile fetch', async () => {
+    vi.mocked(fetch).mockImplementation(async () =>
+      mockResponse({
+        login: 'octocat',
+        name: 'The Octocat',
+      })
+    );
+
+    await fetchUserProfile('octocat');
+    await fetchUserProfile('octocat', { bypassCache: true });
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('cache hit: second repos call uses cached value', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      mockResponse([
+        {
+          stargazers_count: 1,
+          language: 'TypeScript',
+        },
+      ])
+    );
+
+    await fetchUserRepos('octocat');
+    await fetchUserRepos('octocat');
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('refresh bypass: bypassCache=true forces fresh repos fetch', async () => {
+    vi.mocked(fetch).mockImplementation(async () =>
+      mockResponse([
+        {
+          stargazers_count: 1,
+          language: 'TypeScript',
+        },
+      ])
+    );
+
+    await fetchUserRepos('octocat');
+    await fetchUserRepos('octocat', { bypassCache: true });
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });
 describe('generateAchievements', () => {
   it('marks contribution milestones correctly', () => {
@@ -473,5 +534,31 @@ describe('validateGitHubUsername', () => {
 
   it('returns false for consecutive hyphens', () => {
     expect(validateGitHubUsername('in--valid')).toBe(false);
+  });
+});
+
+describe('cacheKey', () => {
+  it('creates key without year', () => {
+    expect(cacheKey('profile', 'DeepSikha')).toBe('profile:deepsikha');
+  });
+
+  it('creates key with year', () => {
+    expect(cacheKey('contributions', 'DeepSikha', '2025')).toBe('contributions:deepsikha:2025');
+  });
+
+  it('converts username to lowercase', () => {
+    expect(cacheKey('repos', 'DeEpSiKhA')).toBe('repos:deepsikha');
+  });
+
+  it('supports profile kind', () => {
+    expect(cacheKey('profile', 'testuser')).toContain('profile');
+  });
+
+  it('supports repos kind', () => {
+    expect(cacheKey('repos', 'testuser')).toContain('repos');
+  });
+
+  it('supports contributions kind', () => {
+    expect(cacheKey('contributions', 'testuser')).toContain('contributions');
   });
 });
