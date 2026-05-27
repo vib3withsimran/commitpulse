@@ -60,7 +60,8 @@ export function isStreakAlive(
 export function calculateStreak(
   calendar: ContributionCalendar,
   timezone: string = 'UTC',
-  now: Date = new Date()
+  now: Date = new Date(),
+  grace: number = 1
 ): StreakStats {
   const weeks = calendar.weeks;
   const days = weeks.flatMap((week) => week.contributionDays);
@@ -98,19 +99,25 @@ export function calculateStreak(
     };
   }
 
-  const today = days[todayIndex];
-  const yesterday = todayIndex > 0 ? days[todayIndex - 1] : null;
+  // If I committed today, or any day within the grace period (e.g. yesterday for grace=1),
+  // the streak is STILL alive.
+  let isStreakAlive = false;
+  for (let i = 0; i <= grace; i++) {
+    const checkIndex = todayIndex - i;
+    if (checkIndex >= 0 && days[checkIndex].contributionCount > 0) {
+      isStreakAlive = true;
+      break;
+    }
+  }
 
-  // If I committed today, the streak is alive.
-  // If I haven't committed today, but I committed yesterday,
-  // the streak is STILL alive (Grace Period).
-  const streakAlive = isStreakAlive(today, yesterday);
+  if (isStreakAlive) {
+    // Find the most recent day with a contribution within the grace period
+    let i = todayIndex;
+    while (i >= todayIndex - grace && i >= 0 && days[i].contributionCount === 0) {
+      i--;
+    }
 
-  if (streakAlive) {
     // Count backwards from the first day that has a contribution
-    // starting from either today or yesterday.
-    let i = today.contributionCount > 0 ? todayIndex : todayIndex - 1;
-
     while (i >= 0 && days[i].contributionCount > 0) {
       currentStreak++;
       i--;
