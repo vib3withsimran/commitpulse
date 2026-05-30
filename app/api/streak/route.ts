@@ -249,7 +249,8 @@ function buildErrorResponse(error: unknown, parseResult: ParseResult): NextRespo
   const isValidationError =
     (error instanceof Error && error.name === 'ValidationError') ||
     message.toLowerCase().includes('invalid') ||
-    message.toLowerCase().includes('validation');
+    message.toLowerCase().includes('validation') ||
+    message.toLowerCase().includes('strictly for organizations');
 
   const errBg = `#${(parseResult.success && parseResult.data.bg) || '0d1117'}`;
   const errAccent = `#${

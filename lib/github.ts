@@ -513,15 +513,25 @@ export async function fetchOrgMembers(orgName: string): Promise<string[]> {
  * Generates an aggregated Organization Mega-Dashboard.
  */
 export async function getOrgDashboardData(orgName: string, options: FetchOptions = {}) {
-  const [profileData, reposData, members] = await Promise.all([
-    fetchUserProfile(orgName, options),
-    fetchUserRepos(orgName, options),
-    fetchOrgMembers(orgName),
+  const profilePromise = fetchUserProfile(orgName, options);
+  const reposPromise = fetchUserRepos(orgName, options);
+  const membersPromise = fetchOrgMembers(orgName).catch((err) => err as Error);
+
+  const [profileData, reposData, membersOrError] = await Promise.all([
+    profilePromise,
+    reposPromise,
+    membersPromise,
   ]);
 
   if (profileData.type !== 'Organization') {
     throw new Error('This endpoint is strictly for organizations.');
   }
+
+  if (membersOrError instanceof Error) {
+    throw membersOrError;
+  }
+
+  const members = membersOrError;
 
   // Fetch calendars for all members concurrently (Capped by member limit to avoid 429)
   const memberCalendarsPromises = members.map((member: string) =>
